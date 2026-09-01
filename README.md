@@ -1,4 +1,4 @@
-# Icon Packager KDE
+# KDE Icon Package Assistant (KIPA)
 
 Aplicación de escritorio (Python + PySide6) para crear, configurar y
 empaquetar temas de iconos personalizados para KDE, siguiendo la
