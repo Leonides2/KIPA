@@ -1,0 +1,114 @@
+name: Build & Release
+
+# Genera un ejecutable standalone (PyInstaller) que no depende de que el
+# usuario final tenga Python/PySide6/Pillow instalados.
+#
+# - En cada push/PR a main: corre los tests y construye el binario como
+#   artefacto descargable (verificación de que el empaquetado no rompe).
+# - Al pushear un tag "vX.Y.Z": además publica el binario en un GitHub
+#   Release.
+on:
+  push:
+    branches: [main]
+    tags: ["v*.*.*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  test:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependencias del sistema (Qt/XCB offscreen)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libxcb-cursor0 libxkbcommon-x11-0 libegl1 libgl1 \
+            libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 \
+            libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 libxcb-xfixes0
+
+      - name: Instalar el proyecto (modo dev)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Ejecutar tests
+        run: pytest -q
+
+  build:
+    needs: test
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependencias del sistema (Qt/XCB)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libxcb-cursor0 libxkbcommon-x11-0 libegl1 libgl1 \
+            libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 \
+            libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 libxcb-xfixes0
+
+      - name: Instalar el proyecto y PyInstaller
+        run: |
+          python -m pip install --upgrade pip
+          pip install ".[build]"
+
+      - name: Construir ejecutable standalone
+        run: |
+          # Instalación NO editable: PyInstaller necesita que "src" exista
+          # físicamente en site-packages para poder analizar sus imports
+          # (con -e/editable no lo detecta y falla con "No module named 'src'").
+          # Sin --collect-all: los hooks propios de PySide6 ya incluyen los
+          # plugins de Qt (xcb/offscreen) que usan QtCore/QtGui/QtWidgets.
+          pyinstaller --onefile --name icon-packager-kde \
+            "$(command -v icon-packager-kde)"
+
+      - name: Smoke test del binario (headless, offscreen)
+        run: |
+          chmod +x dist/icon-packager-kde
+          set +e
+          QT_QPA_PLATFORM=offscreen timeout 5 ./dist/icon-packager-kde
+          code=$?
+          set -e
+          # 124 = timeout mató el proceso -> la app arrancó y se quedó
+          # esperando el loop de eventos, es el resultado esperado.
+          if [ "$code" -ne 124 ] && [ "$code" -ne 0 ]; then
+            echo "El binario terminó con código inesperado: $code"
+            exit 1
+          fi
+
+      - name: Subir artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: icon-packager-kde-linux-x86_64
+          path: dist/icon-packager-kde
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: icon-packager-kde-linux-x86_64
+          path: dist
+
+      - name: Publicar GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/icon-packager-kde
+          generate_release_notes: true
