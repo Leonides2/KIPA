@@ -1,8 +1,9 @@
 """Verificación de dependencias del sistema operativo antes de arrancar.
 
-Se ejecuta antes de importar PySide6/Pillow, para poder informar con un
-mensaje claro (por terminal, y por diálogo Tk si está disponible) de qué
-falta y cómo instalarlo, en vez de fallar con un `ImportError` críptico.
+Se ejecuta antes de importar PySide6/PySide2/Pillow, para poder informar
+con un mensaje claro (por terminal, y por diálogo Tk si está disponible)
+de qué falta y cómo instalarlo, en vez de fallar con un `ImportError`
+críptico.
 """
 
 from __future__ import annotations
@@ -15,7 +16,10 @@ import shutil
 import sys
 from dataclasses import dataclass, field
 
-MIN_PYTHON = (3, 11)
+# 3.9 en vez de 3.11: PySide2 (Qt5, ver src/ui/qt_compat.py) no tiene
+# wheels para Python 3.11+, así que el mínimo se baja para no bloquear a
+# quien lo use en un sistema Plasma 5 con un Python más antiguo.
+MIN_PYTHON = (3, 9)
 
 # Familias de distribuciones Linux soportadas para sugerir el comando de
 # instalación correcto (best-effort, basado en /etc/os-release).
@@ -53,6 +57,12 @@ _SYSTEM_PACKAGES = {
         "arch": "pyside6",
         "opensuse": "python3-PySide6",
     },
+    "pyside2": {
+        "debian": "python3-pyside2.qtcore python3-pyside2.qtgui python3-pyside2.qtwidgets",
+        "fedora": "python3-pyside2",
+        "arch": "pyside2",
+        "opensuse": "python3-PySide2",
+    },
     "pillow": {
         "debian": "python3-pil",
         "fedora": "python3-pillow",
@@ -83,6 +93,7 @@ _SYSTEM_PACKAGES = {
 # sistema (p.ej. dentro de un venv).
 _PIP_PACKAGE = {
     "pyside6": "PySide6",
+    "pyside2": "PySide2",
     "pillow": "Pillow",
     "cairosvg": "cairosvg",
 }
@@ -159,24 +170,41 @@ def check_dependencies() -> DependencyReport:
     report = DependencyReport()
 
     py_ok = sys.version_info[:2] >= MIN_PYTHON
+    min_python_str = f"{MIN_PYTHON[0]}.{MIN_PYTHON[1]}"
     report.checks.append(
         DependencyCheck(
-            name="Python >= 3.11",
+            name=f"Python >= {min_python_str}",
             required=True,
             ok=py_ok,
             detail=f"Detectado: Python {platform.python_version()}",
-            install_hint="Instala Python 3.11+ con tu gestor de paquetes o "
-            "desde https://www.python.org/downloads/",
+            install_hint=f"Instala Python {min_python_str}+ con tu gestor de paquetes "
+            "o desde https://www.python.org/downloads/",
         )
     )
 
+    has_pyside6 = importlib.util.find_spec("PySide6") is not None
+    has_pyside2 = importlib.util.find_spec("PySide2") is not None
+    if has_pyside6:
+        qt_detail = "Biblioteca de interfaz gráfica (Qt para Python). Se usará PySide6 (Qt6)."
+    elif has_pyside2:
+        qt_detail = (
+            "Biblioteca de interfaz gráfica (Qt para Python). Se usará PySide2 (Qt5) "
+            "— no se encontró PySide6."
+        )
+    else:
+        qt_detail = (
+            "Biblioteca de interfaz gráfica (Qt para Python). Se admite PySide6 "
+            "(Qt6, recomendado, Plasma 6) o PySide2 (Qt5, Plasma 5)."
+        )
     report.checks.append(
         DependencyCheck(
-            name="PySide6",
+            name="PySide6 o PySide2",
             required=True,
-            ok=importlib.util.find_spec("PySide6") is not None,
-            detail="Biblioteca de interfaz gráfica (Qt para Python).",
-            install_hint=_install_hint("pyside6"),
+            ok=has_pyside6 or has_pyside2,
+            detail=qt_detail,
+            install_hint=(
+                f"Qt6: {_install_hint('pyside6')}  |  Qt5: {_install_hint('pyside2')}"
+            ),
         )
     )
 

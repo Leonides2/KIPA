@@ -3,10 +3,9 @@ name = "icon-packager-kde"
 version = "0.1.0"
 description = "Crea, configura y empaqueta temas de iconos personalizados para KDE"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.9"
 license = { text = "MIT" }
 dependencies = [
-    "PySide6>=6.6",
     "Pillow>=10.0",
 ]
 
@@ -14,6 +13,16 @@ dependencies = [
 icon-packager-kde = "src.main:main"
 
 [project.optional-dependencies]
+# El binding de Qt no es una dependencia fija: se elige uno de los dos.
+# qt6 (PySide6/Plasma 6) es el recomendado; qt5 (PySide2/Plasma 5) es la
+# alternativa para sistemas más antiguos (requiere Python <= 3.10, ver
+# src/ui/qt_compat.py y src/core/dependency_checker.py).
+qt6 = [
+    "PySide6>=6.6",
+]
+qt5 = [
+    "PySide2>=5.15.2",
+]
 dev = [
     "pytest>=8.0",
 ]

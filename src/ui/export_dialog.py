@@ -5,25 +5,11 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from PySide6.QtCore import QThread, Signal
-from PySide6.QtWidgets import (
-    QDialog,
-    QFileDialog,
-    QGroupBox,
-    QHBoxLayout,
-    QLabel,
-    QLineEdit,
-    QMessageBox,
-    QProgressBar,
-    QPushButton,
-    QRadioButton,
-    QVBoxLayout,
-)
-
 from src.core.icon_manager import IconManager
 from src.core.packager import Packager, PackagerError
 from src.core.theme_builder import ThemeBuildError, ThemeBuilder
 from src.models.theme_metadata import ThemeMetadata
+from src.ui.qt_compat import QThread, Signal, QtWidgets
 
 MODE_A = "a"
 MODE_B = "b"
@@ -67,7 +53,7 @@ class ExportWorker(QThread):
                 shutil.rmtree(self._tmp_theme_root, ignore_errors=True)
 
 
-class ExportDialog(QDialog):
+class ExportDialog(QtWidgets.QDialog):
     """Diálogo que valida, selecciona modo/destino y lanza la exportación."""
 
     def __init__(
@@ -83,55 +69,55 @@ class ExportDialog(QDialog):
         self._metadata_provider = metadata_provider
         self._worker: ExportWorker | None = None
 
-        layout = QVBoxLayout(self)
+        layout = QtWidgets.QVBoxLayout(self)
 
-        mode_group = QGroupBox("Modo de exportación")
-        mode_layout = QVBoxLayout(mode_group)
-        self.mode_a_radio = QRadioButton(
+        mode_group = QtWidgets.QGroupBox("Modo de exportación")
+        mode_layout = QtWidgets.QVBoxLayout(mode_group)
+        self.mode_a_radio = QtWidgets.QRadioButton(
             "Modo A — Distribución privada (.tar.gz + install.sh)"
         )
         self.mode_a_radio.setChecked(True)
         mode_layout.addWidget(self.mode_a_radio)
         mode_layout.addWidget(
-            QLabel(
+            QtWidgets.QLabel(
                 "    El usuario descomprime el .tar.gz y ejecuta install.sh\n"
                 "    para instalar el tema en ~/.local/share/icons/"
             )
         )
-        self.mode_b_radio = QRadioButton(
+        self.mode_b_radio = QtWidgets.QRadioButton(
             "Modo B — Paquete KDE (instalable con kpackagetool6 -t Icons)"
         )
         mode_layout.addWidget(self.mode_b_radio)
         mode_layout.addWidget(
-            QLabel(
+            QtWidgets.QLabel(
                 "    Genera un paquete con metadata.json compatible con\n"
                 "    KPackage, instalable con un único comando."
             )
         )
         layout.addWidget(mode_group)
 
-        dest_group = QGroupBox("Destino")
-        dest_layout = QHBoxLayout(dest_group)
-        self.dest_edit = QLineEdit()
+        dest_group = QtWidgets.QGroupBox("Destino")
+        dest_layout = QtWidgets.QHBoxLayout(dest_group)
+        self.dest_edit = QtWidgets.QLineEdit()
         dest_layout.addWidget(self.dest_edit)
-        browse_button = QPushButton("Examinar…")
+        browse_button = QtWidgets.QPushButton("Examinar…")
         browse_button.clicked.connect(self._on_browse)
         dest_layout.addWidget(browse_button)
         layout.addWidget(dest_group)
 
-        self.progress_bar = QProgressBar()
+        self.progress_bar = QtWidgets.QProgressBar()
         self.progress_bar.setValue(0)
         layout.addWidget(self.progress_bar)
 
-        self.status_label = QLabel("")
+        self.status_label = QtWidgets.QLabel("")
         layout.addWidget(self.status_label)
 
-        buttons_row = QHBoxLayout()
+        buttons_row = QtWidgets.QHBoxLayout()
         buttons_row.addStretch()
-        self.export_button = QPushButton("Exportar")
+        self.export_button = QtWidgets.QPushButton("Exportar")
         self.export_button.clicked.connect(self._on_export_clicked)
         buttons_row.addWidget(self.export_button)
-        self.close_button = QPushButton("Cerrar")
+        self.close_button = QtWidgets.QPushButton("Cerrar")
         self.close_button.clicked.connect(self.reject)
         buttons_row.addWidget(self.close_button)
         layout.addLayout(buttons_row)
@@ -146,7 +132,7 @@ class ExportDialog(QDialog):
         return f"{metadata.slug}{suffix}.tar.gz"
 
     def _on_browse(self) -> None:
-        path, _ = QFileDialog.getSaveFileName(
+        path, _ = QtWidgets.QFileDialog.getSaveFileName(
             self,
             "Guardar paquete como",
             str(Path.home() / self._default_filename()),
@@ -172,7 +158,7 @@ class ExportDialog(QDialog):
         metadata = self._metadata_provider()
         errors = self._validate(metadata)
         if errors:
-            QMessageBox.warning(
+            QtWidgets.QMessageBox.warning(
                 self, "No se puede exportar", "\n".join(f"• {e}" for e in errors)
             )
             return
@@ -197,7 +183,7 @@ class ExportDialog(QDialog):
     def _on_finished_ok(self, output_path: str) -> None:
         self.export_button.setEnabled(True)
         self.status_label.setText(f"Exportado correctamente: {output_path}")
-        QMessageBox.information(
+        QtWidgets.QMessageBox.information(
             self, "Exportación completada", f"Tema exportado en:\n{output_path}"
         )
 
@@ -205,4 +191,4 @@ class ExportDialog(QDialog):
         self.export_button.setEnabled(True)
         self.progress_bar.setValue(0)
         self.status_label.setText("Error durante la exportación.")
-        QMessageBox.critical(self, "Error al exportar", message)
+        QtWidgets.QMessageBox.critical(self, "Error al exportar", message)

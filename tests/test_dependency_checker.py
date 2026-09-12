@@ -11,7 +11,7 @@ def test_check_dependencies_in_dev_env_has_no_missing_required():
 
 
 def test_check_dependencies_python_version_check(monkeypatch):
-    monkeypatch.setattr(dc.sys, "version_info", (3, 9, 0))
+    monkeypatch.setattr(dc.sys, "version_info", (3, 8, 0))
     report = dc.check_dependencies()
     python_check = next(c for c in report.checks if c.name.startswith("Python"))
     assert python_check.ok is False
@@ -22,17 +22,35 @@ def test_check_dependencies_missing_required_package(monkeypatch):
     original_find_spec = dc.importlib.util.find_spec
 
     def fake_find_spec(name):
-        if name == "PySide6":
+        if name in ("PySide6", "PySide2"):
             return None
         return original_find_spec(name)
 
     monkeypatch.setattr(dc.importlib.util, "find_spec", fake_find_spec)
     report = dc.check_dependencies()
 
-    pyside_check = next(c for c in report.checks if c.name == "PySide6")
+    pyside_check = next(c for c in report.checks if c.name == "PySide6 o PySide2")
     assert pyside_check.ok is False
     assert pyside_check in report.missing_required
     assert not report.is_ok
+
+
+def test_check_dependencies_ok_with_only_pyside2(monkeypatch):
+    original_find_spec = dc.importlib.util.find_spec
+
+    def fake_find_spec(name):
+        if name == "PySide6":
+            return None
+        if name == "PySide2":
+            return original_find_spec("PIL")  # cualquier spec no-None sirve
+        return original_find_spec(name)
+
+    monkeypatch.setattr(dc.importlib.util, "find_spec", fake_find_spec)
+    report = dc.check_dependencies()
+
+    pyside_check = next(c for c in report.checks if c.name == "PySide6 o PySide2")
+    assert pyside_check.ok is True
+    assert "PySide2" in pyside_check.detail
 
 
 def test_format_report_includes_install_hint_for_missing_required(monkeypatch):

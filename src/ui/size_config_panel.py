@@ -3,21 +3,9 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Signal
-from PySide6.QtWidgets import (
-    QCheckBox,
-    QComboBox,
-    QGridLayout,
-    QGroupBox,
-    QHBoxLayout,
-    QLabel,
-    QPushButton,
-    QVBoxLayout,
-    QWidget,
-)
-
 from src.core.icon_manager import IconManager
 from src.models.icon_item import STANDARD_SIZES, VALID_CONTEXTS
+from src.ui.qt_compat import Signal, QtWidgets
 
 CONTEXT_DISPLAY_NAMES = {
     "apps": "Aplicaciones (apps)",
@@ -28,26 +16,26 @@ CONTEXT_DISPLAY_NAMES = {
 }
 
 
-class SizeSelector(QWidget):
+class SizeSelector(QtWidgets.QWidget):
     """Checkboxes para los tamaños estándar + opción "Escalable (SVG)".
 
     Widget reutilizable: se usa tanto en el panel global como en el
     diálogo de edición individual de un icono.
     """
 
-    def __init__(self, parent: QWidget | None = None):
+    def __init__(self, parent: QtWidgets.QWidget | None = None):
         super().__init__(parent)
-        self._checkboxes: dict[int, QCheckBox] = {}
+        self._checkboxes: dict[int, QtWidgets.QCheckBox] = {}
 
-        layout = QGridLayout(self)
+        layout = QtWidgets.QGridLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         columns = 4
         for i, size in enumerate(STANDARD_SIZES):
-            checkbox = QCheckBox(f"{size}x{size}")
+            checkbox = QtWidgets.QCheckBox(f"{size}x{size}")
             self._checkboxes[size] = checkbox
             layout.addWidget(checkbox, i // columns, i % columns)
 
-        self.scalable_checkbox = QCheckBox("Escalable (SVG)")
+        self.scalable_checkbox = QtWidgets.QCheckBox("Escalable (SVG)")
         row = (len(STANDARD_SIZES) - 1) // columns + 1
         layout.addWidget(self.scalable_checkbox, row, 0, 1, columns)
 
@@ -65,44 +53,46 @@ class SizeSelector(QWidget):
         self.scalable_checkbox.setChecked(value)
 
 
-class SizeConfigPanel(QWidget):
+class SizeConfigPanel(QtWidgets.QWidget):
     """Panel de configuración global: tamaños y contexto por defecto,
     aplicables a todos los iconos de una vez."""
 
     configuration_changed = Signal()
 
-    def __init__(self, icon_manager: IconManager, parent: QWidget | None = None):
+    def __init__(self, icon_manager: IconManager, parent: QtWidgets.QWidget | None = None):
         super().__init__(parent)
         self._icon_manager = icon_manager
 
-        layout = QVBoxLayout(self)
+        layout = QtWidgets.QVBoxLayout(self)
 
-        sizes_group = QGroupBox("Tamaños a generar")
-        sizes_layout = QVBoxLayout(sizes_group)
+        sizes_group = QtWidgets.QGroupBox("Tamaños a generar")
+        sizes_layout = QtWidgets.QVBoxLayout(sizes_group)
         self.size_selector = SizeSelector()
         sizes_layout.addWidget(self.size_selector)
 
-        apply_sizes_row = QHBoxLayout()
+        apply_sizes_row = QtWidgets.QHBoxLayout()
         apply_sizes_row.addStretch()
-        self.apply_sizes_button = QPushButton("Aplicar tamaños a todos los iconos")
+        self.apply_sizes_button = QtWidgets.QPushButton("Aplicar tamaños a todos los iconos")
         self.apply_sizes_button.clicked.connect(self._apply_sizes_to_all)
         apply_sizes_row.addWidget(self.apply_sizes_button)
         sizes_layout.addLayout(apply_sizes_row)
         layout.addWidget(sizes_group)
 
-        context_group = QGroupBox("Contexto")
-        context_layout = QVBoxLayout(context_group)
-        context_row = QHBoxLayout()
-        context_row.addWidget(QLabel("Contexto por defecto:"))
-        self.context_combo = QComboBox()
+        context_group = QtWidgets.QGroupBox("Contexto")
+        context_layout = QtWidgets.QVBoxLayout(context_group)
+        context_row = QtWidgets.QHBoxLayout()
+        context_row.addWidget(QtWidgets.QLabel("Contexto por defecto:"))
+        self.context_combo = QtWidgets.QComboBox()
         for ctx in VALID_CONTEXTS:
             self.context_combo.addItem(CONTEXT_DISPLAY_NAMES[ctx], userData=ctx)
         context_row.addWidget(self.context_combo)
         context_layout.addLayout(context_row)
 
-        apply_context_row = QHBoxLayout()
+        apply_context_row = QtWidgets.QHBoxLayout()
         apply_context_row.addStretch()
-        self.apply_context_button = QPushButton("Aplicar contexto a todos los iconos")
+        self.apply_context_button = QtWidgets.QPushButton(
+            "Aplicar contexto a todos los iconos"
+        )
         self.apply_context_button.clicked.connect(self._apply_context_to_all)
         apply_context_row.addWidget(self.apply_context_button)
         context_layout.addLayout(apply_context_row)

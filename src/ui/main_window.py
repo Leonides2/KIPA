@@ -2,24 +2,16 @@
 
 from __future__ import annotations
 
-from PySide6.QtWidgets import (
-    QMainWindow,
-    QSplitter,
-    QStatusBar,
-    QToolBar,
-    QVBoxLayout,
-    QWidget,
-)
-from PySide6.QtCore import Qt
-
 from src.core.icon_manager import IconManager
 from src.ui.export_dialog import ExportDialog
 from src.ui.icon_grid import IconGridWidget
 from src.ui.metadata_panel import MetadataPanel
+from src.ui.qt_compat import Qt, QtWidgets, exec_dialog
 from src.ui.size_config_panel import SizeConfigPanel
+from src.ui.theme_import_dialog import ThemeImportDialog
 
 
-class MainWindow(QMainWindow):
+class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Icon Packager KDE")
@@ -31,13 +23,13 @@ class MainWindow(QMainWindow):
         self.size_config_panel = SizeConfigPanel(self.icon_manager)
         self.metadata_panel = MetadataPanel()
 
-        side_panel = QWidget()
-        side_layout = QVBoxLayout(side_panel)
+        side_panel = QtWidgets.QWidget()
+        side_layout = QtWidgets.QVBoxLayout(side_panel)
         side_layout.addWidget(self.size_config_panel)
         side_layout.addWidget(self.metadata_panel)
         side_layout.addStretch()
 
-        splitter = QSplitter(Qt.Orientation.Horizontal)
+        splitter = QtWidgets.QSplitter(Qt.Horizontal)
         splitter.addWidget(self.icon_grid)
         splitter.addWidget(side_panel)
         splitter.setStretchFactor(0, 2)
@@ -46,16 +38,19 @@ class MainWindow(QMainWindow):
 
         self._build_toolbar()
 
-        self.status_bar = QStatusBar()
+        self.status_bar = QtWidgets.QStatusBar()
         self.setStatusBar(self.status_bar)
         self._update_status()
 
         self.icon_grid.icons_changed.connect(self._update_status)
         self.size_config_panel.configuration_changed.connect(self.icon_grid.refresh)
         self.size_config_panel.configuration_changed.connect(self._update_status)
+        self.metadata_panel.browse_theme_icons_requested.connect(
+            self._open_theme_import_dialog
+        )
 
     def _build_toolbar(self) -> None:
-        toolbar = QToolBar("Principal")
+        toolbar = QtWidgets.QToolBar("Principal")
         toolbar.setMovable(False)
         self.addToolBar(toolbar)
 
@@ -69,4 +64,10 @@ class MainWindow(QMainWindow):
 
     def _open_export_dialog(self) -> None:
         dialog = ExportDialog(self.icon_manager, self.metadata_panel.get_metadata, self)
-        dialog.exec()
+        exec_dialog(dialog)
+
+    def _open_theme_import_dialog(self, theme_hint: str) -> None:
+        dialog = ThemeImportDialog(self.icon_manager, self, preselect_theme_id=theme_hint)
+        dialog.icons_imported.connect(lambda _count: self.icon_grid.refresh())
+        dialog.icons_imported.connect(lambda _count: self._update_status())
+        exec_dialog(dialog)
